@@ -8,12 +8,15 @@ from typing import Optional, List, Union, Literal
 from fastapi import FastAPI, Query, Path, HTTPException, status, Depends
 from pydantic import BaseModel, Field, field_validator, EmailStr, ConfigDict
 from sqlalchemy import create_engine, Integer, String, Text, DateTime, select, func, UniqueConstraint, ForeignKey, \
-    Table, Column
+    Table, Column, Select
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase, Mapped, mapped_column, relationship, selectinload, \
+    joinedload
+from dotenv import load_dotenv
 
+load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL","sqlite:///./blog.db")
-print("Conectado a: ", DATABASE_URL)
+#print("Conectado a: ", DATABASE_URL)
 
 engine_kwargs = {}
 if DATABASE_URL.startswith("sqlite"):
@@ -44,7 +47,8 @@ class AuthorORM(Base):
     name:Mapped[str]=mapped_column(String(100), nullable=False)
     email:Mapped[str]=mapped_column(String(100), unique=True, index=True)
 
-    posts:Mapped[List["PostORM"]] = relationship(back_populates="author")
+    posts:Mapped[List["PostORM"]] = relationship(
+        back_populates="author")
 
 class TagsORM(Base):
     __tablename__ = "tags"
@@ -52,7 +56,9 @@ class TagsORM(Base):
     id:Mapped[int]=mapped_column(Integer,primary_key=True, index=True)
     name:Mapped[str]=mapped_column(String(100), nullable=False, index=True)
 
-    posts: Mapped[List["PostORM"]] = relationship(back_populates="tags")
+    posts: Mapped[List["PostORM"]] = relationship(
+        secondary=post_tags,
+        back_populates="tags")
 
 
 class PostORM(Base):
@@ -65,13 +71,14 @@ class PostORM(Base):
     create_at:Mapped[datetime]=mapped_column(DateTime, default=datetime.now)
 
     author_id:Mapped[Optional[int]]=mapped_column(ForeignKey("authors.id"))
-    author: Mapped[Optional["AuthorORM"]]=relationship(back_populates="posts")
+    author: Mapped[Optional["AuthorORM"]]=relationship(
+        back_populates="posts")
 
     tags:Mapped[List["TagsORM"]]=relationship(
         secondary=post_tags,
         back_populates="posts",
         lazy="selectin",
-        passive_deletes=True,
+        passive_deletes=True
     )
 
 
@@ -97,8 +104,8 @@ class Tag(BaseModel):
 
     model_config = ConfigDict(from_attributes=True) #Tambien acepta objetos, ORM, si no esta solo acepta diccionarios
 
-class Autor(BaseModel):
-    nombre: str = Field(
+class Author(BaseModel):
+    name: str = Field(
         ...,
         min_length=3,
         max_length=50,
@@ -111,7 +118,7 @@ class Autor(BaseModel):
 class PostBase(BaseModel):
     title: str
     content: str
-    autor: Optional[Autor] = None
+    author: Optional[Author] = None
     tags: Optional[List[Tag]] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
 
 class PostCreate(BaseModel):
@@ -127,7 +134,7 @@ class PostCreate(BaseModel):
         description="Contenido del post - minimo 10 caracteres",
         examples=["Este es el contenido de mi primer post con FastAPI"])
 
-    autor: Optional[Autor] = None
+    author: Optional[Author] = None
     tags: List[Tag] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
 
     @field_validator("title")
@@ -198,21 +205,17 @@ def list_posts(
     ),
 
     per_page: int=Query(
-        10, ge=1, le=50,
-        description="Cantidad de resultados por pagina, entre 1 y 50"), 
+        10, ge=1, le=50, description="Cantidad de resultados por pagina, entre 1 y 50"),
 
     page: int=Query(
-        1, ge=1,
-        description="Numero de pagina, debe ser un entero mayor o igual a 1"),
+        1, ge=1, description="Numero de pagina, debe ser un entero mayor o igual a 1"),
 
 
     order_by: Literal["id", "title"]=Query(
-        "id", 
-        description="Campo por el cual ordenar los resultados, puede ser 'id' o 'title'"),
+        "id", description="Campo por el cual ordenar los resultados, puede ser 'id' o 'title'"),
 
     direction: Literal["asc", "desc"]=Query(
-        "asc", 
-        description="Direccion del ordenamiento, puede ser 'asc' o 'desc'"),
+        "asc", description="Direccion del ordenamiento, puede ser 'asc' o 'desc'"),
 
     db:Session = Depends(get_db)
 
@@ -271,30 +274,46 @@ def list_posts(
 @app.get("/posts/by-tags", response_model=List[PostPublic])
 def filter_by_tags(tags: List[str] = Query(
     ...,
-    min_length=2,
-    description="Una o mas etiquetas. Ejemplo: ?tags=python&tags=fastapi"
-    )
-):
-    tags_lower=[tag.lower() for tag in tags]
+    min_length=1,
+    description="Una o mas etiquetas. Ejemplo: ?tags=python&tags=fastapi")
+    ,db:Session = Depends(get_db)
+    ):
+    if not tags:
+        raise HTTPException(status_code=404, detail="Tags no agregado")
 
-    return [
-        PostPublic.model_validate(post)
-        for post in BLOG_POSTS
-        if any(
-            tag["name"].lower() in tags_lower
-            for tag in post.get("tags", [])
-        )
-    ]
+    normalize_tag_name = [tag.strip().lower() for tag in tags if tag.strip()]
+    if not normalize_tag_name:
+        return []
+
+    post_list = (
+        select(PostORM).options(
+        selectinload(PostORM.tags),
+        joinedload(PostORM.author),
+        ).where(PostORM.tags.any(func.lower(TagsORM.name).in_(normalize_tag_name)))
+        .order_by(PostORM.id.asc())
+    )
+    post = db.execute(post_list).scalars().all()
+
+    return post #PostPublic.model_validate(post, from_attributes=True)
+
+    #tags_lower=[tag.lower() for tag in tags]
+    #
+    # return [
+    #     PostPublic.model_validate(post)
+    #     for post in BLOG_POSTS
+    #     if any(
+    #         tag["name"].lower() in tags_lower
+    #         for tag in post.get("tags", [])
+    #     )
+    # ]
 
 
 
 @app.get("/posts/{post_id}", response_model= Union[PostPublic, PostSummary], response_description="Post encontrado")
 def get_post(post_id: int = Path(
-        ..., ge=1,
-        title="ID del post",
+        ..., ge=1, title="ID del post",
         description="ID del post a buscar",
-        examples=[1]), 
-
+        examples=[1]),
         include_content: bool = Query(
         default=True, description="Permite mostrar el contenido del post"),
         db: Session = Depends(get_db)
@@ -324,8 +343,6 @@ def get_post(post_id: int = Path(
     # else:
 
 
-
-
 # # POST con QUERY PARAMS
 # @app.post("/posts")
 # def create_post(title: str = Query(..., description="Titulo del post"), content: str = Query(..., description="Contenido del post")):
@@ -338,7 +355,26 @@ def get_post(post_id: int = Path(
 # POST con BODY y Pydantic
 @app.post("/posts", response_model=PostPublic, response_description="Post creado exitosamente", status_code=status.HTTP_201_CREATED)
 def create_post(post: PostCreate, db: Session = Depends(get_db)):
-    new_post = PostORM(title=post.title, content=post.content)
+    author_obj=None
+    if post.author:
+        author_obj = db.execute(
+            select(AuthorORM).where(AuthorORM.email == post.author.email)).scalar_one_or_none()
+        if not author_obj:
+            author_obj = AuthorORM(name=post.author.name, email=post.author.email)
+            db.add(author_obj)
+            db.flush()
+
+    new_post = PostORM(title=post.title, content=post.content, author=author_obj)
+
+
+    for tag in post.tags:
+        tags_obj = db.execute(
+                select(TagsORM).where(TagsORM.name.ilike(tag.name))).scalar_one_or_none()
+        if not tags_obj:
+            tags_obj = TagsORM(name=tag.name)
+            db.add(tags_obj)
+            db.flush()
+        new_post.tags.append(tags_obj)
     try:
         db.add(new_post)
         db.commit()
@@ -349,7 +385,7 @@ def create_post(post: PostCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="El post ya existe")
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Error de SQLAlchemy")
     # new_id=max(post["id"] for post in BLOG_POSTS)+1 if BLOG_POSTS else 1
     # new_post={"id": new_id,
     #         "title": post.title,
