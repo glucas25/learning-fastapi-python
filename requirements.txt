@@ -1,0 +1,4 @@
+fastapi
+sqlalchemy>=2.0
+psycopg[binary]
+python-dotenv
