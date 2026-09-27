@@ -28,7 +28,7 @@ class PostRepository:
         total = self.db.scalar(select(func.count()).select_from(results.subquery())) or 0
 
         if total == 0:
-             return 0, []    
+             return 0, []
         total_pages = ceil(total / per_page)# Calcular el número total de páginas
         
         current_page = min(page, max(1, total_pages)) # Asegurarse de que la página actual no exceda el número total de páginas
