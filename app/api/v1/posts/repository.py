@@ -105,8 +105,8 @@ class PostRepository:
         for key, value in updates.items():
             setattr(post, key, value)
     
-        self.db.add(post)
-        self.db.refresh(post)
+        #self.db.add(post)
+        #self.db.refresh(post) Al refrescar se borrar los cambios
         return post
 
     def delete_post(self,post:PostORM) -> None:
