@@ -8,6 +8,7 @@ from typing import List, Literal, Optional, Union
 from app.core.db import get_db
 from .schemas import (PostCreate, PostPublic, PostSummary, PostUpdate, PaginatedPosts)
 from .repository import PostRepository
+from app.core.security import oauth2_scheme
 
 router=APIRouter(prefix="/posts", tags=["posts"])
 
@@ -160,3 +161,8 @@ def delete_post(post_id: int,
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/secure")
+def secure_endpoint(token:str=Depends(oauth2_scheme)):
+    return {"message":"Acceso con token","token_recibido":token}
