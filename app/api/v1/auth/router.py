@@ -8,6 +8,7 @@ from datetime import timedelta
 FAKE_USERS = {
     "ricardo@example.com": {"email": "ricardo@example.com", "username": "ricardo", "password": "secret123"},
     "alumno@example.com":  {"email": "alumno@example.com",  "username": "alumno",  "password": "123456"},
+    "glucas@example.com": {"email": "glucas@example.com", "username": "Gabriel Lucas", "password":"1212"}
 }
 
 router = APIRouter(prefix="/auth",tags=["auth"])

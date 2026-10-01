@@ -14,6 +14,20 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
+def raise_expired_token():
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, 
+        detail="No autenticado",
+        headers={"WWW-Authenticate":"Beader"}
+        )
+
+def raise_forbiden():
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, 
+        detail="No tienes permisos suficientes",
+        headers={"WWW-Authenticate":"Beader"}
+        )
+
 def create_access_token(data:dict,expires_delta:Optional[timedelta]=None):
     to_encode =data.copy()
     expire = datetime.now(tz=timezone.utc) + (
@@ -27,17 +41,12 @@ def decode_token(token:str) -> dict:
     return playload
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    credential_exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, 
-        detail="No autenticado",
-        headers={"WWW-Authenticate":"Beader"}
-        )
     try:
         playload=decode_token(token)
         sub: Optional[str] = playload.get("sub")
         username: Optional[str]= playload.get("username")
         if not sub or not username:
-            raise credential_exc
+            raise_expired_token()
         return {"email":sub, "username":username}
     except ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,5 +54,5 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
                             headers={"WWW-Authenticate":"Beader"}
                             )
     except InvalidTokenError:
-        raise credential_exc
+        raise raise_expired_token()
     

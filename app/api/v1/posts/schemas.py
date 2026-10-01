@@ -43,7 +43,7 @@ class PostCreate(BaseModel):
         description="Contenido del post - minimo 10 caracteres",
         examples=["Este es el contenido de mi primer post con FastAPI"])
 
-    author: Optional[Author] = None
+    #author: Optional[Author] = None
     tags: List[Tag] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
 
     @field_validator("title")
