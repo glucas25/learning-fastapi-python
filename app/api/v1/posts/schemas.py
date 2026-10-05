@@ -1,6 +1,6 @@
+from fastapi import Form
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
-from typing import List, Optional, Literal
-
+from typing import List, Optional, Literal, Annotated
 
 
 class Tag(BaseModel):
@@ -28,6 +28,7 @@ class PostBase(BaseModel):
     title: str
     content: str
     author: Optional[Author] = None
+    image_url: Optional[str] = None
     tags: Optional[List[Tag]] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
 
 class PostCreate(BaseModel):
@@ -52,6 +53,16 @@ class PostCreate(BaseModel):
         if "spam" in value.lower():
             raise ValueError("El titulo no puede contener la palabra 'spam'")
         return value
+
+    @classmethod
+    def as_form(
+            cls,
+            title: Annotated[str, Form(min_length=3)],
+            content: Annotated[str, Form(min_length=10)],
+            tags: Annotated[Optional[List[str]],Form()] = None,
+            ):
+        tag_objs = [Tag(name=t) for t in (tags or [])]
+        return cls(title=title, content=content, tags=tag_objs)
 
 class PostUpdate(BaseModel):
     title: str = Field(min_length=3, max_length=100, description="Titulo del post - minimo 3 caracteres y maximo 100")

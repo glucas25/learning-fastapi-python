@@ -1,11 +1,12 @@
 from math import ceil
 
-from fastapi import APIRouter, HTTPException, Path, Query, Depends, status
+from fastapi import APIRouter, HTTPException, Path, Query, Depends, status, UploadFile, File
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union, Annotated
 
 from app.core.db import get_db
+from app.services.file_storage import save_upload_file
 from .schemas import (PostCreate, PostPublic, PostSummary, PostUpdate, PaginatedPosts)
 from .repository import PostRepository
 from app.core.security import oauth2_scheme, get_current_user
@@ -100,14 +101,21 @@ def get_post(post_id: int = Path(
     return PostSummary.model_validate(post, from_attributes=True)
 
 @router.post("", response_model=PostPublic, response_description="Post creado exitosamente", status_code=status.HTTP_201_CREATED)
-def create_post(post: PostCreate, db: Session = Depends(get_db), user= Depends(get_current_user)):
+def create_post(post: Annotated[PostCreate, Depends(PostCreate.as_form)], image: Optional[UploadFile]=File(None), db: Session = Depends(get_db), user= Depends(get_current_user)):
 
     repository = PostRepository(db)
 
     try:
+        saved_image =None
+        if image is not None:
+            saved_image = save_upload_file(image)
+
+        image_url = saved_image["url"] if saved_image else None
+
         post = repository.create_post(title=post.title,content= post.content,
             #author=(post.author.model_dump() if post.author else None),
             author=user,
+            image_url=image_url,
             tags=[tag.model_dump() for tag in post.tags])
         db.commit()
         db.refresh(post)
