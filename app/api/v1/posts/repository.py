@@ -87,15 +87,21 @@ class PostRepository:
         author_obj=None
         #if author:
         author_obj = self.ensure_author(author['username'],author['email'])
-        tags_list=[]
-        if tags:
-            for tag in tags:
-                tag_obj=self.ensure_tag(tag['name'])
-                tags_list.append(tag_obj)
 
         post = PostORM(
-            title=title, content=content,
-            author=author_obj,image_url=image_url, tags=tags_list)
+                    title=title, content=content,
+                    author=author_obj,image_url=image_url)
+        
+        if tags:
+            names = tags[0]["name"].split(",")
+            for name in names:
+                name = name.strip().lower()
+                if not name:
+                    continue
+                tag_obj=self.ensure_tag(name)
+                post.tags.append(tag_obj)
+
+        
 
         self.db.add(post)
         self.db.flush()
