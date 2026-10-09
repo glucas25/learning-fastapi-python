@@ -18,7 +18,13 @@ class PostRepository:
         post_find = select(PostORM).where(PostORM.id == post_id)
         return self.db.execute(post_find).scalar_one_or_none()
 
-    def search(self, query: Optional[str], order_by:str, direction:str, page: int, per_page: int) -> Tuple[int, List[PostORM]]:
+    def search(self,
+               query: Optional[str],
+                order_by:str,
+                direction:str,
+                page: int,
+                per_page: int
+                ) -> Tuple[int, List[PostORM]]:
         
         results= select(PostORM) # Construye un objeto de consulta SQL interna de select * from post
         
