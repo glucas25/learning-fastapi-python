@@ -6,10 +6,10 @@ class TagPublic(BaseModel):
         min_length=2,
         max_length=30,
         description="Nombre de la etiqueta",
-        examples=["Python"],
+        examples=["Python"])
 
-        model_config=ConfigDict(from_attributes=True)
-    )
+    model_config=ConfigDict(from_attributes=True)
+
 
 class TagCreate(BaseModel):
     name:str = Field(...,

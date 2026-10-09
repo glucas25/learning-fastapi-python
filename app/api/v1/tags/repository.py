@@ -15,17 +15,18 @@ class TagRepository:
 
     def list_tags(self,
                search: Optional[str],
-                order_by:str,
-                direction:str,
-                page: int,
-                per_page: int):
+               order_by:str="id",
+               direction:str="asc",
+               page: int=1,
+               per_page: int=10):
         query = select(TagsORM)
         if search:
-            query = query.where(func.lower(TagsORM.name).ilike(f"%{search.lower()}%"))
+            query = query.where(func.lower(
+                TagsORM.name).ilike(f"%{search.lower()}%"))
 
         allowed_order ={
             "id":TagsORM.id,
-            "name":func.lower(TagsORM.name)
+            "name":func.lower(TagsORM.name),
         }
 
         result = paginate_query(
