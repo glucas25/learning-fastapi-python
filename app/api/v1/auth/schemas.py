@@ -24,7 +24,7 @@ class UserLogin(BaseModel):
     email:EmailStr
     password: str
 
-class Token(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     type_token:str="bearer"
     user: UserPublic
