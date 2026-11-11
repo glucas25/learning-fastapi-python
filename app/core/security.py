@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, status
 import jwt
 from typing import Optional, Literal
 from datetime import datetime, timedelta, timezone
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.orm import Session
 from pwdlib import PasswordHash
@@ -11,9 +11,10 @@ from pwdlib import PasswordHash
 from app.core.config import settings
 from app.core.db import get_db
 from app.models import User
+from app.api.v1.auth.repository import UserRepository
 
 password_hash = PasswordHash.recommended()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 def raise_forbiden():
     return HTTPException(
@@ -31,6 +32,11 @@ def raise_user_not_found():
 def raise_expired_token():
     return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Token expirado",
+                            headers={"WWW-Authenticate":"Beader"}
+                            )
+def raise_invalid_credentials():
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Credenciales inválidas",
                             headers={"WWW-Authenticate":"Beader"}
                             )
 
@@ -86,6 +92,15 @@ def require_role(min_role: Literal["user","editor","admin"]):
             raise raise_expired_token()
         return user
     return evaluation
+
+async def auth2_token(form: OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)):
+    repository = UserRepository(db)
+    user = repository.get_by_email(form.username)
+    if not user or not verify_password(form.password, user.hashed_password):
+        raise raise_invalid_credentials()
+    token =create_access_token(sub=str(user.id))
+    return {"access_token":token, "token_type":"bearer"}
+
 
 require_user = require_role("user")
 require_editor = require_role("editor")

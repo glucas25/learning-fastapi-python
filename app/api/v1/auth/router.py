@@ -5,7 +5,7 @@ from app.core.db import get_db
 from app.models import User
 from .repository import UserRepository
 from .schemas import TokenResponse, UserPublic, UserCreate, UserLogin, RoleUpdate
-from app.core.security import create_access_token, get_current_user, hash_password, verify_password, require_admin
+from app.core.security import auth2_token, create_access_token, get_current_user, hash_password, verify_password, require_admin
 
 router = APIRouter(prefix="/auth",tags=["auth"])
 
@@ -51,3 +51,7 @@ def set_role(user_id: int = Path(..., ge=1),
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     updated = repository.set_role(user, payload.role)
     return UserPublic.model_validate(updated)
+
+@router.post("/token")
+async def token_endpoint(response = Depends(auth2_token)):
+    return response
