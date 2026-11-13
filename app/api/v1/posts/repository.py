@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 from app.models.post import PostORM
 from app.models.tag import TagsORM
-from app.models.author import AuthorORM
+from app.models.user import User
 
 
 class PostRepository:
@@ -65,18 +65,21 @@ class PostRepository:
         
         return self.db.execute(post_list).scalars().all()
 
-    def ensure_author(self,name: str,email: str) -> AuthorORM:
+    def ensure_author(self,name: str,email: str) -> User:
         
-        if name and email:
-            author_obj = self.db.execute(select(AuthorORM).where(AuthorORM.email == email)).scalar_one_or_none()
+        
+        author_obj = self.db.execute(
+            select(User).where(
+                User.email == email)).scalar_one_or_none()
 
-            if author_obj:
-                return author_obj
-            
-            author_obj = AuthorORM(name=name, email=email)
-            self.db.add(author_obj)
-            self.db.flush()
+        if author_obj:
             return author_obj
+
+        #LLamara crear user
+        author_obj = User(name=name, email=email)
+        self.db.add(author_obj)
+        self.db.flush()
+        return author_obj
 
     def ensure_tag(self, name: str) -> TagsORM:
         tags_obj = self.db.execute(
@@ -89,14 +92,13 @@ class PostRepository:
         self.db.flush()
         return tags_obj
 
-    def create_post(self, title:str, content:str,author:Optional[dict],tags:List[dict], image_url:str) -> PostORM:
-        author_obj=None
-        #if author:
-        author_obj = self.ensure_author(author['username'],author['email'])
+    def create_post(self, title:str, content:str,user:Optional[User],tags:List[dict], image_url:str) -> PostORM:
+        user_obj = self.ensure_author(user.full_name,user.email)
 
         post = PostORM(
                     title=title, content=content,
-                    author=author_obj,image_url=image_url)
+                    user=user_obj,
+                    image_url=image_url)   
         
         if tags:
             names = tags[0]["name"].split(",")

@@ -2,12 +2,13 @@
 
 
 from datetime import datetime
-from typing import Literal
+from typing import List, Literal
 
 from sqlalchemy import Boolean, DateTime, Enum, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.models.post import PostORM
 
 Role = Literal["user", "editor","admin"]
 
@@ -20,3 +21,5 @@ class User(Base):
     role:Mapped[Role] = mapped_column(Enum("user", "editor","admin", name="role_enum"),default="user")
     is_active:Mapped[bool] = mapped_column(Boolean, default=True)
     created_at:Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    posts:Mapped[List["PostORM"]] = relationship(back_populates="user")
