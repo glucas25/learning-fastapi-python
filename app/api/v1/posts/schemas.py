@@ -2,6 +2,11 @@ from fastapi import Form
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from typing import List, Optional, Literal, Annotated
 
+from app.api.v1.auth.schemas import UserPublic
+from app.api.v1.categories.schemas import CategoryPublic
+
+
+
 
 class Tag(BaseModel):
     name: str = Field(...,
@@ -27,9 +32,12 @@ class Author(BaseModel):
 class PostBase(BaseModel):
     title: str
     content: str
-    author: Optional[Author] = None
+    user: Optional[UserPublic] = None
     image_url: Optional[str] = None
     tags: Optional[List[Tag]] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
+    category: Optional[CategoryPublic] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 class PostCreate(BaseModel):
     title: str= Field(
@@ -47,6 +55,8 @@ class PostCreate(BaseModel):
 
     tags: List[Tag] = Field(default_factory=list, description="Lista de etiquetas del post") # Crea una lista vacia por defecto
 
+    category_id: Optional[int] = None
+
     @field_validator("title")
     @classmethod
     def title_not_allowed(cls, value:str)-> str:
@@ -59,10 +69,11 @@ class PostCreate(BaseModel):
             cls,
             title: Annotated[str, Form(min_length=3)],
             content: Annotated[str, Form(min_length=10)],
+            category_id: Annotated[Optional[int], Form(ge=1)] = None,
             tags: Annotated[Optional[List[str]],Form()] = None,
             ):
         tag_objs = [Tag(name=t) for t in (tags or [])]
-        return cls(title=title, content=content, tags=tag_objs)
+        return cls(title=title, content=content, tags=tag_objs, category_id=category_id)
 
 class PostUpdate(BaseModel):
     title: str = Field(min_length=3, max_length=100, description="Titulo del post - minimo 3 caracteres y maximo 100")

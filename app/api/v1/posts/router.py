@@ -114,7 +114,8 @@ def create_post(post: Annotated[PostCreate, Depends(PostCreate.as_form)], image:
 
         post = repository.create_post(title=post.title,content= post.content,
             #author=(post.author.model_dump() if post.author else None),
-            author=user,
+            user=user,
+            category_id=post.category_id,
             image_url=image_url,
             tags=[tag.model_dump() for tag in post.tags])
         db.commit()

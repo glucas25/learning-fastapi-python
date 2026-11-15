@@ -58,7 +58,8 @@ class PostRepository:
         post_list = (
                 select(PostORM).options(
                 selectinload(PostORM.tags),
-                joinedload(PostORM.author),
+                joinedload(PostORM.user),
+                #joinedload(PostORM.category),
                 ).where(PostORM.tags.any(func.lower(TagsORM.name).in_(normalize_tag_name)))
                 .order_by(PostORM.id.asc())
             )
@@ -71,14 +72,6 @@ class PostRepository:
         author_obj = self.db.execute(
             select(User).where(
                 User.email == email)).scalar_one_or_none()
-
-        if author_obj:
-            return author_obj
-
-        #LLamara crear user
-        author_obj = User(name=name, email=email)
-        self.db.add(author_obj)
-        self.db.flush()
         return author_obj
 
     def ensure_tag(self, name: str) -> TagsORM:
@@ -92,12 +85,15 @@ class PostRepository:
         self.db.flush()
         return tags_obj
 
-    def create_post(self, title:str, content:str,user:Optional[User],tags:List[dict], image_url:str) -> PostORM:
+    def create_post(self, title:str, content:str,
+                    user:Optional[User],category_id:Optional[int],
+                    tags:List[dict], image_url:str) -> PostORM:
         user_obj = self.ensure_author(user.full_name,user.email)
 
         post = PostORM(
                     title=title, content=content,
                     user=user_obj,
+                    category_id=category_id,
                     image_url=image_url)   
         
         if tags:
