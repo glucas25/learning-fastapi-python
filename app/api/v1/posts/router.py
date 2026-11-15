@@ -78,6 +78,21 @@ def filter_by_tags(tags: List[str] = Query(
 
     return repository.by_tags(tags)
 
+
+@router.get("/{slug}", response_model= Union[PostPublic, PostSummary])
+def get_post_by_slug(slug: str,
+        include_content: bool = Query(
+        default=True, description="Permite mostrar el contenido del post"),
+        db: Session = Depends(get_db)
+        ):
+    repository = PostRepository(db)
+    post = repository.get_by_slug(slug)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post no encontrado")
+    if include_content:
+        return PostPublic.model_validate(post, from_attributes=True)
+    return PostSummary.model_validate(post, from_attributes=True)
+
 @router.get("/{post_id}", response_model= Union[PostPublic, PostSummary], response_description="Post encontrado")
 def get_post(post_id: int = Path(
         ..., ge=1, title="ID del post",

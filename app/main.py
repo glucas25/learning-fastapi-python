@@ -14,7 +14,7 @@ from app.core.db import Base, engine
 load_dotenv()
 
 def create_app() -> FastAPI:
-    app=FastAPI(title="MiniBlog")
+    app=FastAPI(title="MiniBlog", swagger_ui_parameters={"persistAuthorization": True})
     Base.metadata.create_all(bind=engine) #dev
 
     app.include_router(auth_router,prefix="/api/v1")

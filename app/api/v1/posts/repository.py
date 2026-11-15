@@ -7,12 +7,17 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.models.post import PostORM
 from app.models.tag import TagsORM
 from app.models.user import User
+from app.utils.slugify_utils import ensure_slugify
 
 
 class PostRepository:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def get_by_slug(self, slug: str) -> Optional[PostORM]:
+        query = select(PostORM).where(PostORM.slug == slug)
+        return self.db.execute(query).scalar_one_or_none()
 
     def get(self, post_id: int) -> Optional[PostORM]:
         post_find = select(PostORM).where(PostORM.id == post_id)
@@ -90,8 +95,12 @@ class PostRepository:
                     tags:List[dict], image_url:str) -> PostORM:
         user_obj = self.ensure_author(user.full_name,user.email)
 
+        unique_slug = ensure_slugify(self.db, title)
+
         post = PostORM(
-                    title=title, content=content,
+                    title=title,
+                    slug=unique_slug,
+                    content=content,
                     user=user_obj,
                     category_id=category_id,
                     image_url=image_url)   

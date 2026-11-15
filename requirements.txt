@@ -6,3 +6,6 @@ jwt
 pwdlib
 passlib
 pydantic
+slugify
+pwdlib
+pwdlib[argon2]
